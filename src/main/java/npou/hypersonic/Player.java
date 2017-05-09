@@ -8,19 +8,14 @@ import java.util.*;
  **/
 class Player {
 
-    private final static boolean IS_DEBUG = true;
+    private final static boolean IS_DEBUG = false;
 
     private static int width;
     private static int height;
     private static int myId;
-    private static int[][] map;
     private static int[][] map_pp;
     private static int still = 0;
-    //private static int exRange = 3;
-    //private static int bTimer = 8;
     private static int HorW;
-
-    //private static int toThisCoord=0;
 
     private static int maxCell = 0;
 
@@ -30,20 +25,20 @@ class Player {
 
     private ArrayList<Turn> closeCell = new ArrayList<>();
 
-    //ArrayList<Turn> turns = new ArrayList<>();
-
     private Entity my = new Entity();
 
     private boolean canStilBomb = false;
 
     private TurnBomb[] simBombs = new TurnBomb[8];
 
+    private Turn oldTurn = null;
+
 
     public static void main(String args[]) {
         new Player().play();
     }
 
-    void play() {
+    private void play() {
         simBombs[0] = new TurnBomb();
         simBombs[1] = new TurnBomb();
         simBombs[2] = new TurnBomb();
@@ -63,14 +58,13 @@ class Player {
         else
             HorW = width;
 
-        map = new int[height][width];
         map_pp = new int[height][width];
         my.coord = new Coord(-1, -1);
 
         loop(in);
     }
 
-    void loop(Scanner in) {
+    private void loop(Scanner in) {
         while (true) {
             still -=1;
             if (still <0)
@@ -88,17 +82,14 @@ class Player {
                 String[] r = row.split("");
                 for (int _x=0; _x<width; _x++) {
                     if (r[_x].equals(".")) {
-                        map[_y][_x] = 0;
                         map_pp[_y][_x] = 0;
                         continue;
                     }
                     if (r[_x].equals("X")) {
-                        map[_y][_x] = -100;
                         map_pp[_y][_x] = -100;
                         continue;
                     }
 
-                    map[_y][_x] = Integer.parseInt(r[_x])*-1-1;
                     map_pp[_y][_x] = Integer.parseInt(r[_x])*-1-1;
                 }
             }
@@ -117,6 +108,7 @@ class Player {
                 }
                 if (entity.entityType == 1) {
                     bombs.add(entity);
+                    map_pp[entity.coord.y][entity.coord.x] = -200;
                     SysPtErr("b p1 p2 x y "+entity.param1+" "+entity.param2+" "+entity.coord.x+" "+entity.coord.y);
                 }
                 if (entity.entityType == 2) {
@@ -130,7 +122,6 @@ class Player {
 
             simBombs();
 
-
             setPP();
 
             SysPtErr(maxCell);
@@ -143,6 +134,8 @@ class Player {
                         else {
                             if (map_pp[_y][_x] == -100)
                                 System.err.print("w");
+                            else if (map_pp[_y][_x] == -200)
+                                System.err.print("B");
                             else
                                 System.err.print("x");
                         }
@@ -158,7 +151,7 @@ class Player {
 
     /////
 
-    void setPP() {
+    private void setPP() {
         for (int _y = 0; _y < height; _y++) {
             for (int _x=0; _x<width; _x++) {
                 if (map_pp[_y][_x] >= 0) {
@@ -170,7 +163,7 @@ class Player {
         }
     }
 
-    void setPPtoCell(int _y, int _x) {
+    private void setPPtoCell(int _y, int _x) {
         //проверка на бомбы
         for (int x=1; x < my.param2; x++) {
             if (_x + x < width && map_pp[_y][_x + x] < 0) {
@@ -223,8 +216,8 @@ class Player {
 
     /////
 
-    String getAction() {
-        String action = "";
+    private String getAction() {
+        String action;
 
         Turn turn = getTurn();
         if (turn == null)
@@ -233,9 +226,6 @@ class Player {
             if (turn.coord.x == my.coord.x && turn.coord.y == my.coord.y && canStilBomb) {
                 action = "BOMB "+turn.coord.x+" "+turn.coord.y;
             } else {
-                //if (turn.turns > 8 && map_pp[my.coord.y][my.coord.x] > 0 && canLife(turn))
-                //    action = "BOMB "+turn.coord.x+" "+turn.coord.y;
-                //else
                 action = "MOVE "+turn.coord.x+" "+turn.coord.y;
             }
         }
@@ -245,49 +235,14 @@ class Player {
     private Turn getTurn() {
         Turn turn;
 
-        turn = getWave(my.coord);
+        turn = getWave();
 
         return turn;
     }
 
-    private Coord getRound(int i) {
-        Coord coord = new Coord(-1 , -1);
-
-        int x1 = my.coord.x-i<0?0:my.coord.x-i;
-        int x2 = my.coord.x+i>width-1?width-1:my.coord.x+i;
-        int y1 = my.coord.y-i<0?0:my.coord.y-i;
-        int y2 = my.coord.y+i>height-1?height-1:my.coord.y+i;
-
-        for(int y=y1;y<y2+1;y++) {
-            if (map_pp[y][x1] == maxCell) {
-                coord.x = x1;
-                coord.y = y;
-            }
-            if (map_pp[y][x2] == maxCell) {
-                coord.x = x2;
-                coord.y = y;
-            }
-        }
-
-        for(int x=x1;x<x2+1;x++) {
-            if (map_pp[y1][x] == maxCell) {
-                coord.x = x;
-                coord.y = y1;
-            }
-            if (map_pp[y2][x] == maxCell) {
-                coord.x = x;
-                coord.y = y2;
-            }
-        }
-
-        return coord;
-    }
-
-    private Turn getWave(Coord _coord) {
-        //Coord coord = new Coord(my.coord.x, my.coord.y);
+    private Turn getWave() {
         Turn turnTo = new Turn(new Coord(my.coord.x, my.coord.y), 0, null);
 
-        //ArrayList<Turn> closeCell = new ArrayList<>();
         ArrayList<Turn> openCell = new ArrayList<>();
 
         closeCell.clear();
@@ -297,66 +252,82 @@ class Player {
         while (openCell.size() != 0) {
             currentTurn = openCell.get(0);
 
+            if (currentTurn.turns>7) {
+                closeCell.add(currentTurn);
+                openCell.remove(currentTurn);
+                continue;
+            }
+
             addCells(currentTurn, openCell);
             closeCell.add(currentTurn);
             openCell.remove(currentTurn);
         }
 
-        SysPtErr("closeCell.size() " + closeCell.size());
+        SysPtErr("//closeCell.size() " + closeCell.size());
         ArrayList<Turn> canMove = closeCell;//canMove();
 
-        canMove.sort((o1, o2) -> (o1.turns - o2.turns));
+        ArrayList<Turn> del = new ArrayList<>();
+        for (Turn turn:canMove) {
+            if (turn.turns<8)
+                del.add(turn);
+        }
+
+
+        canMove.removeAll(del);
+
+
+        //canMove.sort((o1, o2) -> (o1.turns - o2.turns));
         //проверка нулевой ячейки
         if (canMove.size() != 0) {
             turnTo = canMove.get(0);
             if (!canTurn(turnTo.coord, turnTo.turns)) {
                 canMove.remove(turnTo);
                 turnTo = null;
+            } else {
+                if (canLife(turnTo)) {
+                    canStilBomb = true;
+                }
             }
         }
-        SysPtErr("canMove.size() " + canMove.size());
-        if (canMove.size() != 0) {
+
+        if (oldTurn != null) {
+            for (Turn turn:canMove)
+                if (turn.coord.x == oldTurn.coord.x && turn.coord.y == oldTurn.coord.y) {
+                    turnTo = turn;
+                    SysPtErr("oldTurn ok"+turnTo.coord.x+" "+turnTo.coord.y);
+                    SysPtErr("oldTurn ok"+oldTurn.coord.x+" "+oldTurn.coord.y);
+                    break;
+                }
+        }
+
+        SysPtErr("//canMove.size() " + canMove.size());
+        /*if (canMove.size() != 0) {
             turnTo = canMove.get(0);
             if (canLife(turnTo)) {
                 canStilBomb = true;
             }
             SysPtErr("turnTo " + turnTo.coord.x+" "+turnTo.coord.y);
-        }
+        }*/
 
         boolean isOkCell = canMove.size() != 0;//!bombBoomThis(turnTo, false) && canLife(turnTo);
 
         SysPtErr("isOkCell " + isOkCell);
         SysPtErr("canStilBomb " + canStilBomb);
 
-        /*for (Turn turn:closeCell) {
-            SysPtErr("coord " + turn.coord.x + " " + turn.coord.y);
-            if (!isOkCell) {
-                if (!bombBoomThis(turn, false) && !bombBoomThis(getStart(turn), true) && canLife(turn)) {
-                    SysPtErr("ok coord " + turn.coord.x + " " + turn.coord.y);
-                    turnTo = turn;
-                    isOkCell = true;
-                }
-            } else {
-                if (map_pp[turnTo.coord.y][turnTo.coord.x] < map_pp[turn.coord.y][turn.coord.x]) {
-                    SysPtErr("coord " + turn.coord.x + " " + turn.coord.y);
-                    if (!bombBoomThis(turn, false) && !bombBoomThis(getStart(turn), true) && canLife(turn)) {
-                        SysPtErr("ok coord " + turn.coord.x + " " + turn.coord.y);
-                        turnTo = turn;
-                    }
-                }
-            }
-        }*/
+        //for (Turn turn:canMove)
+        //    SysPtErr("coord to" + turn.coord.x + " " + turn.coord.y + getStart(turn).coord.x + " " + getStart(turn).coord.y);
 
         for (Turn turn:canMove) {
             //SysPtErr("coord " + turn.coord.x + " " + turn.coord.y);
+            if (turnTo == null) {
+                turnTo = turn;
+                if (canLife(turnTo)) {
+                    canStilBomb = true;
+                }
+                continue;
+            }
             if (map_pp[turnTo.coord.y][turnTo.coord.x] < map_pp[turn.coord.y][turn.coord.x]) {
                 SysPtErr("ok coord " + turn.coord.x + " " + turn.coord.y);
-                //if (!bombBoomThis(getStart(turn), true)) {
-                //    SysPtErr("ok coord " + turn.coord.x + " " + turn.coord.y);
-                //turnTo = turn;
-                //if (canLife(turn)) {
-                //    canStilBomb = true;
-                //}
 
                 if (!canStilBomb) {
                     turnTo = turn;
@@ -378,8 +349,14 @@ class Player {
             //SysPtErr("canStilBomb " + canStilBomb);
         }
 
-        if (!isOkCell)
+        if (!isOkCell) {
             turnTo = null;
+            oldTurn = turnTo;
+        } else {
+            SysPtErr("turnTo " + turnTo.coord.x+" "+turnTo.coord.y);
+            oldTurn = turnTo;
+            turnTo = getStart(turnTo);
+        }
 
         return turnTo;
     }
@@ -389,12 +366,18 @@ class Player {
     private void addCells(Turn turn, ArrayList<Turn> openCell) {
         Coord testCoord;
 
+        //SysPtErr("//openCell "+openCell.size());
+        //SysPtErr("//closeCell "+closeCell.size());
+        SysPtErr("from t "+turn.coord.x+" "+turn.coord.y+" "+turn.turns);
+
+
         //up
         if (turn.coord.y-1>=0) {
             testCoord = new Coord(turn.coord.x, turn.coord.y-1);
             if (!contain(closeCell, testCoord)) {
                 if (canTurn(testCoord, turn.turns+1)) {
                     openCell.add(new Turn(new Coord(testCoord.x, testCoord.y), turn.turns+1, turn));
+                    SysPtErr("add u "+testCoord.x+" "+testCoord.y);
                 }
             }
         }
@@ -405,6 +388,7 @@ class Player {
             if (!contain(closeCell, testCoord)) {
                 if (canTurn(testCoord, turn.turns+1)) {
                     openCell.add(new Turn(new Coord(testCoord.x, testCoord.y), turn.turns+1, turn));
+                    SysPtErr("add d "+testCoord.x+" "+testCoord.y);
                 }
             }
         }
@@ -415,6 +399,7 @@ class Player {
             if (!contain(closeCell, testCoord)) {
                 if (canTurn(testCoord, turn.turns+1)) {
                     openCell.add(new Turn(new Coord(testCoord.x, testCoord.y), turn.turns+1, turn));
+                    SysPtErr("add l "+testCoord.x+" "+testCoord.y);
                 }
             }
         }
@@ -425,13 +410,22 @@ class Player {
             if (!contain(closeCell, testCoord)) {
                 if (canTurn(testCoord, turn.turns+1)) {
                     openCell.add(new Turn(new Coord(testCoord.x, testCoord.y), turn.turns+1, turn));
+                    SysPtErr("add r "+testCoord.x+" "+testCoord.y);
                 }
             }
         }
 
+        //stay
+        if (canTurn(turn.coord, turn.turns+1)) {
+            openCell.add(new Turn(new Coord(turn.coord.x, turn.coord.y), turn.turns+1, turn));
+            SysPtErr("add s "+turn.coord.x+" "+turn.coord.y);
+        }
+
+        //SysPtErr("//openCell "+openCell.size());
+
     }
 
-    boolean contain(ArrayList<Turn> closeCell, Coord coord) {
+    private boolean contain(ArrayList<Turn> closeCell, Coord coord) {
         boolean in = false;
         for (Turn turn:closeCell) {
             if (turn.coord.x == coord.x && turn.coord.y == coord.y) {
@@ -443,94 +437,13 @@ class Player {
         return in;
     }
 
-    ArrayList<Turn> canMove() {
-        ArrayList<Turn> turns = new ArrayList<>(closeCell);
-        ArrayList<Turn> del = new ArrayList<>();
-        int _x;
-        int _y;
-
-        for (Turn t:turns) {
-            if (bombBoomThis(getStart(t), true))
-                del.add(t);
-        }
-
-        for (Entity bomb:bombs) {
-            _x = bomb.coord.x;
-            _y = bomb.coord.y;
-
-            for (Turn t:turns) {
-                if (_x == t.coord.x && _y == t.coord.y) {
-                    del.add(t);
-                    break;
-                }
-            }
-
-            for (int x=1; x < my.param2; x++) {
-                if (_x + x < width && map_pp[_y][_x + x] < 0) {
-                    break;
-                }
-                for (Turn t:turns) {
-                    if (_x + x == t.coord.x && _y == t.coord.y){
-                        del.add(t);
-                        break;
-                    }
-                }
-            }
-
-            for (int x = 1; x < my.param2; x++) {
-                if (_x - x > 0 && map_pp[_y][_x - x] < 0) {
-                    break;
-                }
-                for (Turn t:turns) {
-                    if (_x - x == t.coord.x && _y == t.coord.y){
-                        del.add(t);
-                        break;
-                    }
-                }
-            }
-
-            for (int y = 1; y < my.param2; y++) {
-                if (_y + y < height && map_pp[_y + y][_x] < 0) {
-                    break;
-                }
-                for (Turn t:turns) {
-                    if (_x == t.coord.x && _y + y == t.coord.y){
-                        del.add(t);
-                        break;
-                    }
-                }
-            }
-
-            for (int y = 1; y < my.param2; y++) {
-                if (_y - y > 0 && map_pp[_y - y][_x] < 0) {
-                    break;
-                }
-                for (Turn t:turns) {
-                    if (_x == t.coord.x && _y - y == t.coord.y){
-                        del.add(t);
-                        break;
-                    }
-                }
-            }
-        }
-        turns.removeAll(del);
-        return turns;
-    }
-
     private boolean canTurn(Coord coord, int turn) {
         boolean can = true;
         if (map_pp[coord.y][coord.x] < 0)
             can = false;
-        if (can) {
-            for(Entity bomb:bombs) {
-                if (bomb.coord.x == coord.x && bomb.coord.y == coord.y) {
-                    can = false;
-                    break;
-                }
-            }
-        }
-        if (can) {
-            ArrayList<Coord> currentTurnSimBombs = simBombs[turn+1].cells;
+
+        if (can && turn<8) {
+            ArrayList<Coord> currentTurnSimBombs = simBombs[turn].cells;
             SysPtErr("currentTurnSimBombs " + currentTurnSimBombs.size());
             for(Coord coordBomb:currentTurnSimBombs) {
                 if (coord.x == coordBomb.x && coord.y == coordBomb.y) {
@@ -545,158 +458,108 @@ class Player {
 
     /////
 
-    Turn getStart(Turn turn) {
-        if (turn.pTurn == null)
-            return turn;
-        if (turn.pTurn.coord.x == my.coord.x && turn.pTurn.coord.y == my.coord.y)
+    private Turn getStart(Turn turn) {
+        if (turn.pTurn != null && turn.pTurn.pTurn == null)
             return turn;
         return getStart(turn.pTurn);
     }
 
-    boolean bombBoomThis(Turn turn, boolean nextTurn) {
-        //SysPtErr("t b coord" + turn.coord.x+" "+turn.coord.y);
-        boolean isBoom = false;
-
-        for (Entity bomb:bombs) {
-            if (true || bomb.param1 == turn.turns) { //пока проверяем не зависимо от хода
-                if (nextTurn && bomb.param1 != 2)
-                    continue;
-
-                //SysPtErr("b b coord" + bomb.coord.x+" "+bomb.coord.y);
-                int _x = bomb.coord.x;
-                int _y = bomb.coord.y;
-
-                if (_x == turn.coord.x && _y == turn.coord.y) {
-                    isBoom = true;
-                }
-
-                if (!isBoom) {
-                    for (int x=1; x < bomb.param2; x++) {
-                        if (_x + x < width && map_pp[_y][_x + x] < 0) {
-                            break;
-                        }
-                        if (_x + x == turn.coord.x && _y == turn.coord.y) {
-                            isBoom = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!isBoom) {
-                    for (int x = 1; x < bomb.param2; x++) {
-                        if (_x - x > 0 && map_pp[_y][_x - x] < 0) {
-                            break;
-                        }
-                        if (_x - x == turn.coord.x && _y == turn.coord.y) {
-                            isBoom = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!isBoom) {
-                    for (int y = 1; y < bomb.param2; y++) {
-                        if (_y + y < height && map_pp[_y + y][_x] < 0) {
-                            break;
-                        }
-                        if (_x == turn.coord.x && _y + y == turn.coord.y) {
-                            isBoom = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!isBoom) {
-                    for (int y = 1; y < bomb.param2; y++) {
-                        if (_y - y > 0 && map_pp[_y - y][_x] < 0) {
-                            break;
-                        }
-                        if (_x == turn.coord.x && _y - y == turn.coord.y) {
-                            isBoom = true;
-                            break;
-                        }
-                    }
-                }
-
-
-            }
-        }
-
-        return isBoom;
-    }
-
-    boolean canLife(Turn turn) {
+    private boolean canLife(Turn turn) {
         boolean can = true;
+
+        SysPtErr("turn canLife " + turn.coord.x+" "+turn.coord.y);
 
         ArrayList<Turn> turns = new ArrayList<>(closeCell);
         ArrayList<Turn> del = new ArrayList<>();
         int _x = turn.coord.x;
         int _y = turn.coord.y;
 
-        for (Turn t:closeCell) {
+        for (Turn t:turns) {
             if (t.turns>8)
                 del.add(t);
         }
 
         turns.removeAll(del);
+        del.clear();
 
-        for (Turn t:closeCell) {
+        for (Turn t:turns) {
             if (_x == t.coord.x && _y == t.coord.y) {
                 del.add(t);
-                break;
+                //break;
             }
         }
+
+        turns.removeAll(del);
+        del.clear();
 
         for (int x=1; x < my.param2; x++) {
-            if (_x + x < width && map_pp[_y][_x + x] < 0) {
+            if (_x + x >= width) {
+                break;
+            } else if (map_pp[_y][_x + x] < 0) {
                 break;
             }
-            for (Turn t:closeCell) {
+
+            for (Turn t:turns) {
                 if (_x + x == t.coord.x && _y == t.coord.y){
                     del.add(t);
-                    break;
-                }
-            }
-        }
-
-        for (int x = 1; x < my.param2; x++) {
-            if (_x - x > 0 && map_pp[_y][_x - x] < 0) {
-                break;
-            }
-            for (Turn t:closeCell) {
-                if (_x - x == t.coord.x && _y == t.coord.y){
-                    del.add(t);
-                    break;
-                }
-            }
-        }
-
-        for (int y = 1; y < my.param2; y++) {
-            if (_y + y < height && map_pp[_y + y][_x] < 0) {
-                break;
-            }
-            for (Turn t:closeCell) {
-                if (_x == t.coord.x && _y + y == t.coord.y){
-                    del.add(t);
-                    break;
-                }
-            }
-        }
-
-        for (int y = 1; y < my.param2; y++) {
-            if (_y - y > 0 && map_pp[_y - y][_x] < 0) {
-                break;
-            }
-            for (Turn t:closeCell) {
-                if (_x == t.coord.x && _y - y == t.coord.y){
-                    del.add(t);
-                    break;
+                    //break;
                 }
             }
         }
 
         turns.removeAll(del);
-        for (Entity bomb:bombs) {
+        del.clear();
+
+        for (int x = 1; x < my.param2; x++) {
+            if (_x - x < 0) {
+                break;
+            } else if (map_pp[_y][_x - x] < 0) {
+                break;
+            }
+            for (Turn t:turns) {
+                if (_x - x == t.coord.x && _y == t.coord.y){
+                    del.add(t);
+                    //break;
+                }
+            }
+        }
+
+        turns.removeAll(del);
+        del.clear();
+
+        for (int y = 1; y < my.param2; y++) {
+            if (_y + y >= height) {
+                break;
+            } else if (map_pp[_y + y][_x] < 0) {
+                break;
+            }
+            for (Turn t:turns) {
+                if (_x == t.coord.x && _y + y == t.coord.y){
+                    del.add(t);
+                    //break;
+                }
+            }
+        }
+
+        turns.removeAll(del);
+        del.clear();
+
+        for (int y = 1; y < my.param2; y++) {
+            if (_y - y < 0) {
+                break;
+            } else if (map_pp[_y - y][_x] < 0) {
+                break;
+            }
+            for (Turn t:turns) {
+                if (_x == t.coord.x && _y - y == t.coord.y){
+                    del.add(t);
+                    //break;
+                }
+            }
+        }
+
+        turns.removeAll(del);
+        /*for (Entity bomb:bombs) {
             _x = bomb.coord.x;
             _y = bomb.coord.y;
 
@@ -756,14 +619,18 @@ class Player {
             }
         }
 
-        turns.removeAll(del);
+        turns.removeAll(del);*/
 
         SysPtErr("turns.size() " + turns.size());
+        //SysPtErr("del.size() " + del.size());
         if (turns.size() == 0)
             can = false;
 
         return can;
     }
+
+
+    /////
 
     private void simBombs() {
         for(TurnBomb t:simBombs) {
@@ -778,7 +645,7 @@ class Player {
             t.cells.add(new Coord(e.coord.x, e.coord.y));
 
             //проверку на бомбы и предметы
-            for (int x=1; x < my.param2; x++) {
+            for (int x=1; x < e.param2; x++) {
                 if (e.coord.x + x >= width) {
                     break;
                 } else if (map_pp[e.coord.y][e.coord.x + x] < 0) {
@@ -787,7 +654,7 @@ class Player {
                 t.cells.add(new Coord(e.coord.x+x, e.coord.y));
             }
             SysPtErr(t.cells.size());
-            for (int x=1; x < my.param2; x++) {
+            for (int x=1; x < e.param2; x++) {
                 if (e.coord.x - x < 0) {
                     break;
                 } else if (map_pp[e.coord.y][e.coord.x - x] < 0) {
@@ -796,7 +663,7 @@ class Player {
                 t.cells.add(new Coord(e.coord.x-x, e.coord.y));
             }
             SysPtErr(t.cells.size());
-            for (int y = 1; y < my.param2; y++) {
+            for (int y = 1; y < e.param2; y++) {
                 if (e.coord.y + y >= height) {
                     break;
                 } else if (map_pp[e.coord.y + y][e.coord.x] < 0) {
@@ -805,7 +672,7 @@ class Player {
                 t.cells.add(new Coord(e.coord.x, e.coord.y+y));
             }
             SysPtErr(t.cells.size());
-            for (int y = 1; y < my.param2; y++) {
+            for (int y = 1; y < e.param2; y++) {
                 if (e.coord.y - y < 0) {
                     break;
                 } else if (map_pp[e.coord.y - y][e.coord.x] < 0) {
@@ -822,7 +689,7 @@ class Player {
         SysPtErr("/////sb");
     }
 
-
+    /////
 
 
     private void SysPtErr(String text) {
@@ -854,12 +721,12 @@ class Player {
         int x = -1;
         int y = -1;
 
-        public Coord(int x, int y) {
+        Coord(int x, int y) {
             this.x = x;
             this.y = y;
         }
 
-        public Coord() {
+        Coord() {
 
         }
     }
@@ -869,7 +736,7 @@ class Player {
         int turns;
         Turn pTurn;
 
-        public Turn(Coord coord, int turns, Turn pTurn) {
+        Turn(Coord coord, int turns, Turn pTurn) {
             this.coord = coord;
             this.turns = turns;
             this.pTurn = pTurn;
